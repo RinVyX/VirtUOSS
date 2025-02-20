@@ -77,10 +77,10 @@ def get_points(event, x, y, flags, param):
         elif param == "target":
             target_points.append((x, y))        
         # Draw a circle at the clicked point
-        cv2.circle(image, (x, y), 5, (0, 255, 0), -1)
+        cv2.circle(image, (x, y), 10, (0, 255, 0), -1)
         # Display the coordinates on the image
         # here we display the x and y after scaling them to the original image size, so it shows the real values
-        cv2.putText(image, f'({x}, {y})', (x + 10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+        cv2.putText(image, f'({x}, {y})', (x + 10, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
         # display image with the drwan point
         cv2.namedWindow("Image", cv2.WINDOW_NORMAL)
         cv2.imshow("Image", image)
@@ -148,7 +148,7 @@ def process_image(image_path, image_type):
 
     elif image_type == "crop_image":
         cv2.setMouseCallback("Image", get_points_crop, param=image_type)
-        # Wait until 4 points are clicked or reset
+        # Wait until lenght is 2 or reset
         while True:
             key = cv2.waitKey(1)
             if len(crop_points) ==  2:
@@ -319,21 +319,22 @@ if __name__ == "__main__":
     plt.show()
 
     # Crop the images based on the selected points
-    crop_path = load_image("target to crop")
-    if crop_path:
-        crop_points = process_image(crop_path, "crop_image")
+    #crop_path = load_image("target to crop")
+    if target_path:
+        crop_points = process_image(target_path, "crop_image")
         if crop_points is None:
             exit()  # Exit if there was an error loading the target image
 
-        cropped_image = crop_image(target_image, crop_points)
+        cropped_target_image = crop_image(target_image, crop_points)
         plt.subplot(1, 2, 1)
         plt.imshow(target_image)
         plt.title("Original Target Image")
         plt.subplot(1, 2, 2)
-        plt.imshow(cropped_image)
+        plt.imshow(cropped_target_image)
         plt.title("Cropped Target Image")
         plt.show()        
 
+    ## --------------------------------- Registration --------------------------------- ##
 
     # Initial guess for the transformation parameters
     initial_params = [0, 1, 1, 0, 0, 0, 0]  # [theta, scale_x, scale_y, skew_x, skew_y, tx, ty]
@@ -349,10 +350,6 @@ if __name__ == "__main__":
     result = minimize(objective_function, initial_params, method='BFGS')
     optimized_params = result.x
     print('optimized_params:\n',optimized_params)
-
-    # Apply the optimized transformation to the target points
-    transformed_target_points_centered = affine_transform(optimized_params, target_points_centered)
-    transformed_target_points = transformed_target_points_centered + reference_center
 
     # Get the affine matrix
     affine_matrix = get_affine_matrix(optimized_params, target_center)
@@ -377,6 +374,32 @@ if __name__ == "__main__":
     # Apply the combined transformation to the target image
     transformed_target_image = cv2.warpAffine(target_image, combined_matrix[:2, :], (reference_image.shape[1], reference_image.shape[0]))
 
+    # Process the entire video
+    cap = cv2.VideoCapture(target_path)
+    """ frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) 
+    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) """
+    fps = int(cap.get(cv2.CAP_PROP_FPS))
+    out = cv2.VideoWriter('C:\\Users\\P14s\\OneDrive - UQAM\\UQAM\\videos\\normalized\\output_video.mp4', cv2.VideoWriter_fourcc(*'mp4v'), 
+                          fps, (reference_image.shape[1], reference_image.shape[0]))
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        transformed_frame = cv2.warpAffine(frame, combined_matrix[:2, :], (reference_image.shape[1], reference_image.shape[0]))
+        transformed_frame = cv2.cvtColor(transformed_frame, cv2.COLOR_RGB2BGR)
+        out.write(transformed_frame)
+
+    cap.release()
+    out.release()
+
+    # Apply the optimized transformation to the target points
+    transformed_target_points_centered = affine_transform(optimized_params, target_points_centered)
+    transformed_target_points = transformed_target_points_centered + reference_center
+
+
     # Plot the results
     plt.figure(figsize=(15, 10))
 
@@ -393,7 +416,7 @@ if __name__ == "__main__":
     # Plot transformed target image
     plt.subplot(1, 2, 2)
     plt.imshow(reference_image)
-    plt.imshow(transformed_target_image, alpha=0.5)
+    plt.imshow(transformed_target_image, alpha=0.8)
     plt.title('Transformed Target Image')
     print(transformed_target_points)
     plt.scatter(np.array(reference_points)[:, 0], np.array(reference_points)[:, 1], c='blue', label='Reference Points')
