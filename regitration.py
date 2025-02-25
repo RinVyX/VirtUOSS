@@ -179,11 +179,7 @@ def crop_image(image, points):
 
     # Crop the image
     cropped_image = image[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]]
-    return cropped_image, top_left
-
-def adjust_points(points, top_left):
-    adjusted_points = [(x - top_left[0], y - top_left[1]) for x, y in points]
-    return adjusted_points
+    return cropped_image
 
 ## --------------------------------- Registration functions --------------------------------- ##
 
@@ -329,7 +325,7 @@ if __name__ == "__main__":
         if crop_points is None:
             exit()  # Exit if there was an error loading the target image
 
-        cropped_target_image, top_left = crop_image(target_image, crop_points)
+        cropped_target_image = crop_image(target_image, crop_points)
         plt.subplot(1, 2, 1)
         plt.imshow(target_image)
         plt.title("Original Target Image")
@@ -338,18 +334,16 @@ if __name__ == "__main__":
         plt.title("Cropped Target Image")
         plt.show()        
 
-        # adjust the points to the cropped image
-        adjust_target_points = adjust_points(target_points, top_left)
     ## --------------------------------- Registration --------------------------------- ##
 
     # Initial guess for the transformation parameters
     initial_params = [0, 1, 1, 0, 0, 0, 0]  # [theta, scale_x, scale_y, skew_x, skew_y, tx, ty]
 
-    target_center = calculate_center(adjust_target_points)
+    target_center = calculate_center(target_points)
     reference_center = calculate_center(reference_points)
 
     # translate the image so that the center of the points is at the origin
-    target_points_centered = translate_points_origin(adjust_target_points)
+    target_points_centered = translate_points_origin(target_points)
     reference_points_centered = translate_points_origin(reference_points)
 
     # minimize the objective function to get the optimized parameters
@@ -381,12 +375,26 @@ if __name__ == "__main__":
     transformed_target_image = cv2.warpAffine(target_image, combined_matrix[:2, :], (reference_image.shape[1], reference_image.shape[0]))
 
     # Process the entire video
+    """ frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) 
+    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) """
     cap = cv2.VideoCapture(target_path)
-    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) 
-    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = int(cap.get(cv2.CAP_PROP_FPS))
-    out = cv2.VideoWriter('C:\\Users\\P14s\\OneDrive - UQAM\\UQAM\\videos\\normalized\\output_video1.mp4', cv2.VideoWriter_fourcc(*'mp4v'), 
-                          fps, (cropped_target_image.shape[1], cropped_target_image.shape[0]))
+    # get the path from the user to save the video
+    # user choose the folder and name of the video
+    # Let the user choose the save location and file name
+    out_path = filedialog.asksaveasfilename(
+        title="Save the video",
+        filetypes=[("MP4 files", "*.mp4"), ("AVI files", "*.avi")],
+        defaultextension=".mp4"  # Ensure a default extension is added
+    )
+    # Check if the user provided a valid path
+    if not out_path:
+        print("Error: No file path selected. Exiting.")
+        exit()
+
+    # Initialize VideoWriter
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Use 'XVID' for AVI files
+    out = cv2.VideoWriter(out_path, fourcc, fps, (reference_image.shape[1], reference_image.shape[0]))
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -394,8 +402,7 @@ if __name__ == "__main__":
             break
 
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        cropped_frame, _ = crop_image(frame, crop_points)
-        transformed_frame = cv2.warpAffine(cropped_frame, combined_matrix[:2, :], (cropped_target_image.shape[1], cropped_target_image.shape[0]))
+        transformed_frame = cv2.warpAffine(frame, combined_matrix[:2, :], (reference_image.shape[1], reference_image.shape[0]))
         transformed_frame = cv2.cvtColor(transformed_frame, cv2.COLOR_RGB2BGR)
         out.write(transformed_frame)
 
