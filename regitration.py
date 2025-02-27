@@ -181,6 +181,28 @@ def crop_image(image, points):
     cropped_image = image[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]]
     return cropped_image
 
+# Function to pad the image with black pixels to match the desired dimensions
+def pad_image_to_size(image, target_width, target_height):
+    height, width = image.shape[:2]
+    pad_width = max(0, target_width - width)
+    pad_height = max(0, target_height - height)
+    
+    # Calculate padding for left, right, top, and bottom
+    pad_left = pad_width // 2
+    pad_right = pad_width - pad_left
+    pad_top = pad_height // 2
+    pad_bottom = pad_height - pad_top
+    
+    # Pad the image with black pixels
+    padded_image = cv2.copyMakeBorder(image, pad_top, pad_bottom, pad_left, pad_right, cv2.BORDER_CONSTANT, value=[0, 0, 0])
+    return padded_image
+
+# Function to crop and pad the image to match the dimensions of the cropped target image
+def crop_and_pad_image(image, crop_points, target_width, target_height):
+    cropped_image = crop_image(image, crop_points)
+    padded_image = pad_image_to_size(cropped_image, target_width, target_height)
+    return padded_image
+
 ## --------------------------------- Registration functions --------------------------------- ##
 
 # Calculate the center of the points
@@ -268,7 +290,7 @@ if __name__ == "__main__":
         success, reference_image = cap.read()
         reference_image = cv2.cvtColor(reference_image, cv2.COLOR_BGR2RGB)
 
-        plt.subplot(2, 2, 1)
+        """ plt.subplot(2, 2, 1)
         plt.imshow(reference_image)
         # Plot the points in a separate plot
         plt.subplot(2, 2, 2)
@@ -283,7 +305,7 @@ if __name__ == "__main__":
             plt.scatter(x_points, y_points, color='red', s=50)
 
         plt.xlabel("Width")
-        plt.ylabel("Height")
+        plt.ylabel("Height") """
 
     target_path = load_image("target")
     if target_path:
@@ -295,7 +317,7 @@ if __name__ == "__main__":
         success, target_image = cap.read()
         target_image = cv2.cvtColor(target_image, cv2.COLOR_BGR2RGB)
         
-        plt.subplot(2, 2, 3)
+        """ plt.subplot(2, 2, 3)
         plt.imshow(target_image)
         #plt.imshow(target_image[(int(np.min(np.array(target_points)[:, 1])) - 200):(int(np.max(np.array(target_points)[:, 1])) + 200), (int(np.min(np.array(target_points)[:, 0])) - 200):(int(np.max(np.array(target_points)[:, 0])) + 200)])
         
@@ -312,11 +334,11 @@ if __name__ == "__main__":
             plt.scatter(x_points, y_points, color='blue', s=50)
 
         plt.xlabel("Width")
-        plt.ylabel("Height")
+        plt.ylabel("Height") """
 
-    # Show the plot
+    """ # Show the plot
     plt.tight_layout()
-    plt.show()
+    plt.show() """
 
     # Crop the images based on the selected points
     #crop_path = load_image("target to crop")
@@ -326,12 +348,32 @@ if __name__ == "__main__":
             exit()  # Exit if there was an error loading the target image
 
         cropped_target_image = crop_image(target_image, crop_points)
-        plt.subplot(1, 2, 1)
+        target_height, target_width = cropped_target_image.shape[:2]
+
+        # Crop and pad the reference image to match the dimensions of the cropped target image
+        cropped_reference_image = crop_and_pad_image(reference_image, crop_points, target_width, target_height)
+        
+        plt.subplot(2, 2, 1)
         plt.imshow(target_image)
+        # Extract and adjust points for plotting
+        if target_points:
+            x_points, y_points = zip(*target_points)
+            plt.scatter(x_points, y_points, color='blue', s=50)
         plt.title("Original Target Image")
-        plt.subplot(1, 2, 2)
+        plt.subplot(2, 2, 2)
         plt.imshow(cropped_target_image)
         plt.title("Cropped Target Image")
+        plt.subplot(2, 2, 3)
+        plt.imshow(reference_image)
+        # Extract and adjust points for plotting
+        if reference_points:
+            x_points, y_points = zip(*reference_points)
+            plt.scatter(x_points, y_points, color='red', s=50)
+        plt.title("Original reference Image")
+        plt.subplot(2, 2, 4)
+        plt.imshow(cropped_reference_image)
+        plt.title("Cropped reference Image")
+        plt.tight_layout()
         plt.show()        
 
     ## --------------------------------- Registration --------------------------------- ##
@@ -371,12 +413,12 @@ if __name__ == "__main__":
     # Combine the transformations
     combined_matrix = translation_matrix_from_origin @ np.vstack([affine_matrix, [0, 0, 1]]) @ translation_matrix_to_origin
 
-    # Apply the combined transformation to the target image
-    transformed_target_image = cv2.warpAffine(target_image, combined_matrix[:2, :], (reference_image.shape[1], reference_image.shape[0]))
+    # Apply the combined transformation to the cropped target image
+    transformed_target_image = cv2.warpAffine(cropped_target_image, combined_matrix[:2, :], (target_width, target_height))
 
-    # Process the entire video
-    """ frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) 
-    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) """
+    """ # Process the entire video
+    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) 
+    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     cap = cv2.VideoCapture(target_path)
     fps = int(cap.get(cv2.CAP_PROP_FPS))
     # get the path from the user to save the video
@@ -407,7 +449,7 @@ if __name__ == "__main__":
         out.write(transformed_frame)
 
     cap.release()
-    out.release()
+    out.release() """
 
     # Apply the optimized transformation to the target points
     transformed_target_points_centered = affine_transform(optimized_params, target_points_centered)
@@ -429,8 +471,8 @@ if __name__ == "__main__":
 
     # Plot transformed target image
     plt.subplot(1, 2, 2)
-    plt.imshow(reference_image)
-    plt.imshow(transformed_target_image, alpha=0.8)
+    plt.imshow(transformed_target_image)
+    plt.imshow(reference_image, alpha=0.5)
     plt.title('Transformed Target Image')
     print(transformed_target_points)
     plt.scatter(np.array(reference_points)[:, 0], np.array(reference_points)[:, 1], c='blue', label='Reference Points')
