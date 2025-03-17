@@ -401,9 +401,10 @@ if __name__ == "__main__":
     # Calculate the width and height of the crop
     width = max([point[0] for point in scaled_crop_points]) - min([point[0] for point in scaled_crop_points])
     height = max([point[1] for point in scaled_crop_points]) - min([point[1] for point in scaled_crop_points])
-    
     # Apply the combined transformation to the target image
     transformed_target_image = cv2.warpAffine(target_image, combined_matrix[:2, :], (reference_image.shape[1], reference_image.shape[0]))
+
+    transformed_target_image = cv2.warpAffine(target_image, combined_matrix[:2, :], (width, height))
 
     # Process the entire video
     cap = cv2.VideoCapture(target_path)
