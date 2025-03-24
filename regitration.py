@@ -8,46 +8,6 @@ import math
 import scipy.optimize as spo
 from scipy.optimize import minimize
 
-
-""" 
-- This script is used to register two images using a set of corresponding points:
-- points are selected by the user in the reference and target images
-- An image crop is added to the script to target the are of study (FUNCTION TO ADD!!!!!!!!)
-
-Functions:
-- load_image(image_type): Opens a file dialog to load an image.
-- get_points(event, x, y, flags, param): Mouse callback function to get points from the image.
-- reset_callback(image_type): Resets the points and callback for the specified image type.
-- process_image(image_path, image_type): Processes the image and gets points from the user.
-- crop_image(image, points): Crops the image based on the chosen points.
-- translate_points_origin(points): Translates points so that the center of the group of points is at the origin.
-- translate_image_origin(image, points): Translates the image so that the center of the points is at the origin.
-- my_dist(x, y): Calculates the distance between two sets of points.
-- translation_pts(current, w): Applies translation to the points.
-- rotation_pts(current, angle): Applies rotation to the points.
-- scale_x_pts(current, scale): Applies scaling in the x direction to the points.
-- scale_y_pts(current, scale): Applies scaling in the y direction to the points.
-- skew_x_pts(current, skew): Applies skewing in the x direction to the points.
-- skew_y_pts(current, skew): Applies skewing in the y direction to the points.
-- objective(params): Objective function to minimize the sum of distances between transformed points and target points.
-- apply_perspective_transform(image, result, src_points): Applies the perspective transformation to the image.
-
-
-Main code:
-- Loads the reference and target images.
-- Processes the images to get the points.
-- Crops the images based on the selected points. <== Replace with the function to crop the image (user input)
-- Translates the images so that the center of the points is at the origin.
-- Optimizes the transformation parameters.
-- Applies the transformation to the target image.
-- Displays the results.
-
-To come:
-- Reads a CSV file and extracts bounding box coordinates and behaviors. 
-
-"""
-
-
 ## --------------------------------- Global variables --------------------------------- ##
 
 # Initialize lists to store the points
@@ -290,22 +250,6 @@ if __name__ == "__main__":
         success, reference_image = cap.read()
         reference_image = cv2.cvtColor(reference_image, cv2.COLOR_BGR2RGB)
 
-        """ plt.subplot(2, 2, 1)
-        plt.imshow(reference_image)
-        # Plot the points in a separate plot
-        plt.subplot(2, 2, 2)
-        plt.title("Reference Points")
-        plt.xlim(0, int(reference_image.shape[1]))  # Set x-axis limits to original image width
-        plt.ylim(int(reference_image.shape[0]), 0)   # Set y-axis limits to original image height (inverted)
-        plt.gca().set_aspect('equal', adjustable='box')  # Keep aspect ratio
-
-        # Extract and adjust points for plotting
-        if reference_points:
-            x_points, y_points = zip(*reference_points)
-            plt.scatter(x_points, y_points, color='red', s=50)
-
-        plt.xlabel("Width")
-        plt.ylabel("Height") """
 
     target_path = load_image("target")
     if target_path:
@@ -316,29 +260,7 @@ if __name__ == "__main__":
         cap = cv2.VideoCapture(target_path)
         success, target_image = cap.read()
         target_image = cv2.cvtColor(target_image, cv2.COLOR_BGR2RGB)
-        
-        """ plt.subplot(2, 2, 3)
-        plt.imshow(target_image)
-        #plt.imshow(target_image[(int(np.min(np.array(target_points)[:, 1])) - 200):(int(np.max(np.array(target_points)[:, 1])) + 200), (int(np.min(np.array(target_points)[:, 0])) - 200):(int(np.max(np.array(target_points)[:, 0])) + 200)])
-        
-        # Plot the points in a separate plot
-        plt.subplot(2, 2, 4)
-        plt.title("Target Points")
-        plt.xlim(0, int(target_image.shape[1]))  # Set x-axis limits to original image width
-        plt.ylim(int(target_image.shape[0]), 0)   # Set y-axis limits to original image height (inverted)
-        plt.gca().set_aspect('equal', adjustable='box')  # Keep aspect ratio
 
-        # Extract and adjust points for plotting
-        if target_points:
-            x_points, y_points = zip(*target_points)
-            plt.scatter(x_points, y_points, color='blue', s=50)
-
-        plt.xlabel("Width")
-        plt.ylabel("Height") """
-
-    """ # Show the plot
-    plt.tight_layout()
-    plt.show() """
 
     # Crop the images based on the selected points
     #crop_path = load_image("target to crop")
@@ -425,13 +347,13 @@ if __name__ == "__main__":
     # user choose the folder and name of the video
     # Let the user choose the save location and file name
     out_path = filedialog.asksaveasfilename(
-        title="Save the video",
-        filetypes=[("MP4 files", "*.mp4"), ("AVI files", "*.avi")],
-        defaultextension=".mp4"  # Ensure a default extension is added
+        title='Save the video',
+        filetypes=[('MP4 files', '*.mp4'), ('AVI files', '*.avi')],
+        defaultextension='.mp4'  # Ensure a default extension is added
     )
     # Check if the user provided a valid path
     if not out_path:
-        print("Error: No file path selected. Exiting.")
+        print('Error: No file path selected. Exiting.')
         exit()
 
     # Initialize VideoWriter
