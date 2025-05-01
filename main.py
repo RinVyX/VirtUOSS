@@ -5,10 +5,9 @@ from PIL import Image, ImageTk, ImageDraw
 class App:
     def __init__(self, root):
         self.root = root
-        self.root.title("Image Transformation App")
-        self.root.geometry("1000x700")  # Increased window size for better layout
+        self.root.title("VIRTUoss")
+        self.root.geometry("1000x700")
 
-        # Variables to store image paths and points
         self.ref_image_path = None
         self.target_image_path = None
         self.ref_points = []
@@ -22,12 +21,10 @@ class App:
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        # Add description
-        description = tk.Label(self.root, text="Welcome to the Image Transformation App!\n\nThis app allows you to transform images based on reference and target points.", font=("Arial", 14))
+        description = tk.Label(self.root, text="Welcome !\n\nThis app allows you to register Images and Videos based on a 4 reference points.", font=("Arial", 14))
         description.pack(pady=20)
 
-        # Get Started Button
-        get_started_btn = tk.Button(self.root, text="Get Started", font=("Arial", 12), command=self.show_image_selection_page)
+        get_started_btn = tk.Button(self.root, text="Start", font=("Arial", 12), command=self.show_image_selection_page)
         get_started_btn.pack(pady=10)
 
     def show_image_selection_page(self):
@@ -35,7 +32,7 @@ class App:
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        # Main container for two columns
+        # container for the two sections
         container = tk.Frame(self.root)
         container.pack(fill="both", expand=True, padx=20, pady=10)
 
@@ -68,14 +65,14 @@ class App:
         self.target_select_btn.pack(pady=5)
 
         # Transformation Button
-        transform_btn = tk.Button(self.root, text="Launch Transformation", font=("Arial", 12), command=self.launch_transformation)
+        transform_btn = tk.Button(self.root, text="Registration", font=("Arial", 12), command=self.launch_transformation)
         transform_btn.pack(pady=20)
 
     def select_image(self, image_type):
         file_path = filedialog.askopenfilename(filetypes=[("Image Files", "*.png;*.jpg;*.jpeg")])
         if file_path:
             image = Image.open(file_path)
-            image.thumbnail((300, 300))  # Resize for display
+            image.thumbnail((300, 300))
             photo = ImageTk.PhotoImage(image)
 
             if image_type == "reference":
@@ -114,7 +111,7 @@ class App:
         select_radio = tk.Radiobutton(point_type_frame, text="Select Points from Image", variable=self.point_type, value="select", command=lambda: self.toggle_point_input(image_type))
         select_radio.pack(anchor="w")
 
-        # Manual Input Fields (initially hidden)
+        # Manual Input Fields 
         self.manual_input_frame = tk.Frame(self.ref_frame if image_type == "reference" else self.target_frame)
         self.manual_input_frame.pack(fill="x", pady=10)
 
@@ -197,7 +194,7 @@ class App:
 
         image_path = self.ref_image_path if image_type == "reference" else self.target_image_path
         image = Image.open(image_path)
-        image.thumbnail((800, 600))  # Resize for display
+        image.thumbnail((800, 600))
         photo = ImageTk.PhotoImage(image)
 
         canvas = tk.Canvas(points_window, width=800, height=600)
@@ -210,7 +207,7 @@ class App:
         def on_click(event):
             x, y = event.x, event.y
             points.append((x, y))
-            canvas.create_oval(x-5, y-5, x+5, y+5, fill="red")  # Mark the point
+            canvas.create_oval(x-5, y-5, x+5, y+5, fill="red")
             if len(points) == 4:
                 if image_type == "reference":
                     self.ref_points = points
@@ -223,10 +220,9 @@ class App:
         canvas.bind("<Button-1>", on_click)
 
     def launch_transformation(self):
-        # Placeholder for transformation logic
         messagebox.showinfo("Transformation", f"Transformation launched!\nReference Points: {self.ref_points}\nTarget Points: {self.target_points}")
 
-# Run the app
+# Run
 if __name__ == "__main__":
     root = tk.Tk()
     app = App(root)

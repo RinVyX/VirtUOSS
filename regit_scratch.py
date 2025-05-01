@@ -69,8 +69,8 @@ best_params = None
 
 # Define parameter ranges
 angles = np.linspace(0, 2 * np.pi, 36) # theta = [-0.392, -0.075, -0.456, -0.006] == [0:-1] == [5:-6]
-scale_values = np.linspace(-5, 5, 5) # scale_x = [2.228, 1.054, 2.196, 1.002] == [0:3] == [5:-5]
-skew_values = np.linspace(-5, 5, 5) # skew_x = [-0.506, -0.115, -0.576, -0.047] == [0:-1] == [5:-6]
+scale_values = np.linspace(-5, 5, 50) # scale_x = [2.228, 1.054, 2.196, 1.002] == [0:3] == [5:-5]
+skew_values = np.linspace(-5, 5, 50) # skew_x = [-0.506, -0.115, -0.576, -0.047] == [0:-1] == [5:-6]
 stretch_values = np.linspace(-10, 10, 10) # 
 translate_values = np.linspace(-10, 10, 5) # ty = [1.909, -4.429, 1.674, -1.793] == [2:-5] == [7:-10]
 

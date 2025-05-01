@@ -8,15 +8,17 @@ import pandas as pd
 import math
 import scipy.optimize as spo
 from scipy.optimize import minimize
+import time
+
 
 ## --------------------------------- Global variables --------------------------------- ##
 
-# Initialize lists to store the points
+
 reference_points = []; target_points = []; transformed_points = []; target_points_centered = []; reference_points_centered = []
 crop_points = []
-scale_percent = 40  # percent of original size
-height = None; width = None; dim = None # Initialize height, width & dim
-resized_image = None; image = None  # Initialize image & resized_image
+scale_percent = 40
+height = None; width = None; dim = None
+resized_image = None; image = None
 
 # Variables for the cropping functions
 points = []
@@ -32,10 +34,8 @@ def transform_points_centered(points, angle, scale_x, scale_y, skew_x, skew_y, s
     :return: Transformed points
     """
     global transformed_points
-    # Translate points so that the centroid is at the origin
     translated_points = points - centroid
     
-    # Apply transformation (same as before)
     rotation_matrix = np.array([
         [np.cos(angle), -np.sin(angle)],
         [np.sin(angle), np.cos(angle)]
@@ -55,62 +55,53 @@ def transform_points_centered(points, angle, scale_x, scale_y, skew_x, skew_y, s
     transformation_matrix = rotation_matrix @ scaling_matrix @ skew_matrix @ stretch_matrix
     transformed_points = translated_points @ transformation_matrix.T
     
-    # Translate points back to the original coordinate system
     transformed_points += centroid
     
-    # Apply final translation
     transformed_points += np.array([translate_x, translate_y])
     
     return transformed_points
 
 
 def get_affine_matrix_centered(angle, scale_x, scale_y, skew_x, skew_y, stretch_x, stretch_y, translate_x, translate_y, centroid):
-    # Translate to origin
+    
     translation_to_origin = np.array([
         [1, 0, -centroid[0]],
         [0, 1, -centroid[1]],
         [0, 0, 1]
     ])
     
-    # Rotation matrix
     rotation_matrix = np.array([
         [np.cos(angle), -np.sin(angle), 0],
         [np.sin(angle), np.cos(angle), 0],
         [0, 0, 1]
     ])
     
-    # Scaling matrix
     scaling_matrix = np.array([
         [scale_x, 0, 0],
         [0, scale_y, 0],
         [0, 0, 1]
     ])
     
-    # Skew matrix
     skew_matrix = np.array([
         [1, skew_x, 0],
         [skew_y, 1, 0],
         [0, 0, 1]
     ])
     
-    # Stretch matrix
     stretch_matrix = np.array([
         [stretch_x, 0, 0],
         [0, stretch_y, 0],
         [0, 0, 1]
     ])
     
-    # Translate back from origin
     translation_from_origin = np.array([
         [1, 0, centroid[0] + translate_x],
         [0, 1, centroid[1] + translate_y],
         [0, 0, 1]
     ])
     
-    # Combine transformations
     transformation_matrix = translation_from_origin @ rotation_matrix @ scaling_matrix @ skew_matrix @ stretch_matrix @ translation_to_origin
     
-    # Extract the 2x3 part of the matrix for warpAffine
     affine_matrix = transformation_matrix[:2, :]
     return affine_matrix
 
@@ -124,12 +115,26 @@ def objective_function(params, reference_points, target_points, centroid):
     return np.sum(distances**2)
 
 def transform_image(image, affine_matrix):
-    # Get image dimensions
+    
     height, width = image.shape[:2]
     
-    # Apply the transformation
     transformed_image = cv2.warpAffine(image, affine_matrix, (width - 500, height + 600), flags=cv2.INTER_LINEAR)
     return transformed_image
+
+
+def compute_metrics(reference, transformed, name, params, exec_time):
+    diffs = transformed - reference
+    distances = np.linalg.norm(diffs, axis=1)
+    
+    return {
+        'Name': name,
+        'Mean Error': np.mean(distances),
+        'RMSE': np.sqrt(np.mean(distances**2)),
+        'MAE': np.mean(np.abs(diffs)),
+        'Max Error': np.max(distances),
+        'Execution Time (s)': exec_time,
+        'Parameters': params
+    }
 
 
 ## --------------------------------- Main code --------------------------------- ##
@@ -143,52 +148,49 @@ if __name__ == "__main__":
         reference_points = np.array([[275, 317],[977, 335],[935, 1277],[245,1190]], dtype=np.float32)
 
     target_path = "C:\\Users\\P14s\\OneDrive - UQAM\\UQAM\\videos\\Splits\\Babelle\\Head Shaking (as if to detach)_video.mp4"
-    #target_path = "C:\\Users\\P14s\\OneDrive - UQAM\\UQAM\\videos\\Splits\\Maisie\\Exploration_video.mp4"
-    #target_path = "C:\\Users\\P14s\\OneDrive - UQAM\\UQAM\\videos\\Splits\\Mack\\Defecation_video.mp4"
+    target_path = "C:\\Users\\P14s\\OneDrive - UQAM\\UQAM\\videos\\Splits\\Maisie\\Exploration_video.mp4"
+    target_path = "C:\\Users\\P14s\\OneDrive - UQAM\\UQAM\\videos\\Splits\\Mack\\Defecation_video.mp4"
     #target_path = "C:\\Users\\P14s\\OneDrive - UQAM\\UQAM\\videos\\Splits\\Haagendaz\\Scratching_video.mp4"
     if target_path:
         cap = cv2.VideoCapture(target_path)
         success, target_image = cap.read()
         target_image = cv2.cvtColor(target_image, cv2.COLOR_BGR2RGB)
         target_points = np.array([[472.2500, 293.7500],[775.2500, 290.7500],[778.2500, 683.7500],[511.2500, 655.2500]], dtype=np.float32)
-        #target_points = np.array([[221, 419],[884, 398],[872, 1250],[227, 1241]], dtype=np.float32)
-        #target_points = np.array([[551.7500, 310.2500],[847.2500, 307.2500],[842.7500, 682.2500],[586.2500, 668.7500]], dtype=np.float32)
+        target_points = np.array([[221, 419],[884, 398],[872, 1250],[227, 1241]], dtype=np.float32)
+        target_points = np.array([[551.7500, 310.2500],[847.2500, 307.2500],[842.7500, 682.2500],[586.2500, 668.7500]], dtype=np.float32)
         #target_points = np.array([[203, 404],[908, 401],[896, 1262],[212, 1256]], dtype=np.float32)
     ## --------------------------------- Registration --------------------------------- ##
 
-    # Initial guess for the transformation parameters
     initial_params = [0, 1, 1, 0, 0, 1, 1, 0, 0]
 
     centroid = calculate_centroid(target_points)
 
-    # Track progress
     progress = []
 
     def callback(xk):
         progress.append(objective_function(xk, reference_points, target_points, centroid))
 
-    # Optimize
+    start_time = time.time()
+
     result = minimize(
         objective_function,
         initial_params,
         args=(reference_points, target_points, centroid),
-        method='BFGS',  # You can try other methods like 'L-BFGS-B'
+        method='BFGS',  #L-BFGS-B
         callback=callback
     )
-
-    # Best transformation parameters
+    execution_time = time.time() - start_time
     best_params = result.x
+    metrics1 = compute_metrics(reference_points, transformed_points, "BFGS", best_params, execution_time)
+
     print("Best parameters:", best_params)
 
-    # Compute the affine matrix
     affine_matrix = get_affine_matrix_centered(*best_params, centroid)
 
-    # Apply the transformation to the image
     transformed_image = transform_image(target_image, affine_matrix)
 
     print("transformed points :", transformed_points - calculate_centroid(transformed_points))
 
-    # Plot reference image
     plt.subplot(2, 3, 1)
     plt.imshow(reference_image)
     plt.scatter(np.array(reference_points)[:, 0], np.array(reference_points)[:, 1], c='blue', label='Reference Points')
@@ -197,7 +199,6 @@ if __name__ == "__main__":
              c='blue')
     plt.title('Reference Image')
     
-    # Plot transformed target image
     plt.subplot(2, 3, 2)
     plt.imshow(target_image)
     plt.scatter(np.array(target_points)[:, 0], np.array(target_points)[:, 1], c='red', label='Target Points')
