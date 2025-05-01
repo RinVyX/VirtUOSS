@@ -165,44 +165,6 @@ def crop_and_pad_image(image, crop_points, target_width, target_height):
 
 ## --------------------------------- Registration functions --------------------------------- ##
 
-# Calculate the center of the points
-def calculate_center(points):
-    return np.mean(points, axis=0)
-
-# Translate the points so that the center is at the origin
-def translate_points_origin(points):
-    center = calculate_center(points)
-    return points - center
-
-# Define the affine transformation matrix
-def affine_transform(params, points):
-    theta, scale_x, scale_y, skew_x, skew_y, tx, ty = params
-    # Rotation matrix
-    rotation_matrix = np.array([
-        [np.cos(theta), -np.sin(theta)],
-        [np.sin(theta), np.cos(theta)]
-    ])
-    # Scaling matrix
-    scaling_matrix = np.array([
-        [scale_x, 0],
-        [0, scale_y]
-    ])
-    # Skewing matrix
-    skewing_matrix = np.array([
-        [1, skew_x],
-        [skew_y, 1]
-    ])
-    # Combine transformation matrix
-    transformation_matrix = rotation_matrix @ scaling_matrix @ skewing_matrix
-    # Apply transformation
-    transformed_points = points @ transformation_matrix.T + np.array([tx, ty])
-    return transformed_points
-
-# Objective function to minimize
-def objective_function(params):
-    transformed_points = affine_transform(params, target_points_centered)
-    return np.sum((transformed_points - reference_points_centered) ** 2)
-
 # Compute the affine transformation matrix for the image
 def get_affine_matrix(params, center):
     theta, scale_x, scale_y, skew_x, skew_y, tx, ty = params

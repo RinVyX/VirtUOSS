@@ -20,8 +20,151 @@ scale_percent = 40
 height = None; width = None; dim = None
 resized_image = None; image = None
 
-# Variables for the cropping functions
+# Variable for the cropping function
 points = []
+
+## --------------------------------- Functions for cropping images --------------------------------- ##
+# Function to open file dialog and load the image
+def load_image(image_type):
+    root = tk.Tk()
+    root.withdraw()  # Hide the root window!!!
+    file_path = filedialog.askopenfilename(title=f"Select the {image_type} Image", filetypes=[("Selected Files", "*.mp4;*.avi")])
+    return file_path
+
+# the mouse callback func
+def get_points(event, x, y, flags, param):
+    if event == cv2.EVENT_LBUTTONDOWN:
+        # Append the point to the appropriate list
+        if param == "reference":
+            reference_points.append((x, y))
+        elif param == "target":
+            target_points.append((x, y))        
+        # Draw a circle at the clicked point
+        cv2.circle(image, (x, y), 10, (0, 255, 0), -1)
+        # Display the coordinates on the image
+        # here we display the x and y after scaling them to the original image size, so it shows the real values
+        cv2.putText(image, f'({x}, {y})', (x + 10, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+        # display image with the drwan point
+        cv2.namedWindow("Image", cv2.WINDOW_NORMAL)
+        cv2.imshow("Image", image)
+
+# Mouse callback function to capture points
+def get_points_crop(event, x, y, flags, param):
+    global crop_points, image
+    if event == cv2.EVENT_LBUTTONDOWN:
+        # Append the point to the appropriate list
+        crop_points.append((x, y))
+        if len(crop_points) == 2:  # Two points define a rectangle
+            cv2.rectangle(image, crop_points[0], crop_points[1], (0, 255, 0), 2)
+            cv2.namedWindow("Image", cv2.WINDOW_NORMAL)
+            cv2.imshow("Image", image)
+
+
+# Function to reset the points and callback
+def reset_callback(image_type):
+    # making the reference_points & target_points global to use afterwards outside the function
+    if image_type == "reference":
+        global reference_points
+        reference_points = []
+    elif image_type == "target":
+        global target_points
+        target_points = []
+    cv2.namedWindow("Image", cv2.WINDOW_NORMAL)
+    cv2.imshow("Image", image)  # Re-display the image
+    cv2.setMouseCallback("Image", get_points, param=image_type)  # Reset the callback
+
+# Function to process the image and get points
+def process_image(image_path, image_type):
+    global image  
+    # capturing the first frame to use as a reference
+    cap = cv2.VideoCapture(image_path)
+    if not cap.isOpened(): # Error handling
+        print(f"Error: Could not open video file {image_path}")
+        return None
+    
+    success, image = cap.read()
+    if not success: # Error handling
+        print("Error: Could not read image from video.")
+        return None
+    
+    # Display the image and set the mouse callback function
+    cv2.namedWindow("Image", cv2.WINDOW_NORMAL)
+    cv2.imshow("Image", image)
+    if image_type == "reference":
+        cv2.setMouseCallback("Image", get_points, param=image_type)
+        while True:
+            key = cv2.waitKey(1)
+            if len(reference_points) >= 4:
+                break
+            elif key == ord('r'):
+                reset_callback(image_type)
+
+    elif image_type == "target":
+        cv2.setMouseCallback("Image", get_points, param=image_type)
+        # Wait until 4 points are clicked or reset
+        while True:
+            key = cv2.waitKey(1)
+            if len(target_points) >= 4:
+                break
+            elif key == ord('r'):
+                reset_callback(image_type)
+
+    elif image_type == "crop_image":
+        cv2.setMouseCallback("Image", get_points_crop, param=image_type)
+        # Wait until lenght is 2 or reset
+        while True:
+            key = cv2.waitKey(1)
+            if len(crop_points) ==  2:
+                break
+            elif key == ord('r'):
+                reset_callback(image_type)
+        
+    cv2.destroyAllWindows()
+    # the returned points here are in their original size (no need to scale them) (got them from the mouse callback)
+    if image_type == "reference":
+        return reference_points
+    elif image_type == "target":
+        return target_points
+    elif image_type == "crop_image":
+        return crop_points
+
+
+# Function to crop the image using the extracted points
+def crop_image(image, points):
+    if len(points) != 2:
+        raise ValueError("Exactly two points are required to define a rectangle.")
+
+    # Ensure the points are in the correct order (top-left and bottom-right)
+    x1, y1 = points[0]
+    x2, y2 = points[1]
+    top_left = (min(x1, x2), min(y1, y2))
+    bottom_right = (max(x1, x2), max(y1, y2))
+
+    # Crop the image
+    cropped_image = image[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]]
+    return cropped_image
+
+# Function to pad the image with black pixels to match the desired dimensions
+def pad_image_to_size(image, target_width, target_height):
+    height, width = image.shape[:2]
+    pad_width = max(0, target_width - width)
+    pad_height = max(0, target_height - height)
+    
+    # Calculate padding for left, right, top, and bottom
+    pad_left = pad_width // 2
+    pad_right = pad_width - pad_left
+    pad_top = pad_height // 2
+    pad_bottom = pad_height - pad_top
+    
+    # Pad the image with black pixels
+    padded_image = cv2.copyMakeBorder(image, pad_top, pad_bottom, pad_left, pad_right, cv2.BORDER_CONSTANT, value=[0, 0, 0])
+    return padded_image
+
+# Function to crop and pad the image to match the dimensions of the cropped target image
+def crop_and_pad_image(image, crop_points, target_width, target_height):
+    cropped_image = crop_image(image, crop_points)
+    padded_image = pad_image_to_size(cropped_image, target_width, target_height)
+    return padded_image
 
 ## --------------------------------- Registration functions --------------------------------- ##
 def calculate_centroid(points):
@@ -139,26 +282,64 @@ def compute_metrics(reference, transformed, name, params, exec_time):
 
 ## --------------------------------- Main code --------------------------------- ##
 
+start_time = time.time()
 if __name__ == "__main__":
-    reference_path = "C:\\Users\\P14s\\OneDrive - UQAM\\UQAM\\videos\\Fa2023EnvEnr_EmoANT_IN_21SEP2023_IW2_8554Versace.mp4"
+    #reference_path = load_image("reference")
+    reference_path = "C:\\Users\\P14s\\OneDrive - UQAM\\UQAM\\videos\\Splits\\Haagendaz\\Scratching_video.mp4"
+    # reference_path = "C:\\Users\\P14s\\OneDrive - UQAM\\UQAM\\videos\\Fa2023EnvEnr_EmoANT_IN_21SEP2023_IW2_8554Versace.mp4"
+    
     if reference_path:
+        #reference_points = process_image(reference_path, "reference")
+        reference_points = np.array([[203, 404],[908, 401],[896, 1262],[212, 1256]], dtype=np.float32)
+        if reference_points is None:
+            print("Error: Could not process reference image.")
+            exit(1)
         cap = cv2.VideoCapture(reference_path)
         success, reference_image = cap.read()
         reference_image = cv2.cvtColor(reference_image, cv2.COLOR_BGR2RGB)
-        reference_points = np.array([[275, 317],[977, 335],[935, 1277],[245,1190]], dtype=np.float32)
 
-    target_path = "C:\\Users\\P14s\\OneDrive - UQAM\\UQAM\\videos\\Splits\\Babelle\\Head Shaking (as if to detach)_video.mp4"
-    target_path = "C:\\Users\\P14s\\OneDrive - UQAM\\UQAM\\videos\\Splits\\Maisie\\Exploration_video.mp4"
+    """ if reference_path:
+        cap = cv2.VideoCapture(reference_path)
+        success, reference_image = cap.read()
+        reference_image = cv2.cvtColor(reference_image, cv2.COLOR_BGR2RGB)
+        reference_points = np.array([[275, 317],[977, 335],[935, 1277],[245,1190]], dtype=np.float32) """
+
+#    target_path = "C:\\Users\\P14s\\OneDrive - UQAM\\UQAM\\videos\\Splits\\Babelle\\Head Shaking (as if to detach)_video.mp4"
+#    target_path = "C:\\Users\\P14s\\OneDrive - UQAM\\UQAM\\videos\\Splits\\Maisie\\Exploration_video.mp4"
+#    target_path = "C:\\Users\\P14s\\OneDrive - UQAM\\UQAM\\videos\\Splits\\Mack\\Defecation_video.mp4"
+#    target_path = "C:\\Users\\P14s\\OneDrive - UQAM\\UQAM\\videos\\Splits\\Haagendaz\\Scratching_video.mp4"
+
+#    target_path = load_image("target")
     target_path = "C:\\Users\\P14s\\OneDrive - UQAM\\UQAM\\videos\\Splits\\Mack\\Defecation_video.mp4"
-    #target_path = "C:\\Users\\P14s\\OneDrive - UQAM\\UQAM\\videos\\Splits\\Haagendaz\\Scratching_video.mp4"
     if target_path:
+#        target_points = process_image(target_path, "target")
+        target_points = np.array([[551.7500, 310.2500],[847.2500, 307.2500],[842.7500, 682.2500],[586.2500, 668.7500]], dtype=np.float32)
+        if target_points is None:
+            print("Error: Could not process target image.")
+            exit(1)
+        cap = cv2.VideoCapture(target_path)
+        success, target_image = cap.read()
+        target_image = cv2.cvtColor(target_image, cv2.COLOR_BGR2RGB)
+
+    """ if target_path:
         cap = cv2.VideoCapture(target_path)
         success, target_image = cap.read()
         target_image = cv2.cvtColor(target_image, cv2.COLOR_BGR2RGB)
         target_points = np.array([[472.2500, 293.7500],[775.2500, 290.7500],[778.2500, 683.7500],[511.2500, 655.2500]], dtype=np.float32)
         target_points = np.array([[221, 419],[884, 398],[872, 1250],[227, 1241]], dtype=np.float32)
         target_points = np.array([[551.7500, 310.2500],[847.2500, 307.2500],[842.7500, 682.2500],[586.2500, 668.7500]], dtype=np.float32)
-        #target_points = np.array([[203, 404],[908, 401],[896, 1262],[212, 1256]], dtype=np.float32)
+        target_points = np.array([[203, 404],[908, 401],[896, 1262],[212, 1256]], dtype=np.float32) """
+    
+    # Cropping
+    if target_path:
+        crop_points = process_image(target_path, "crop_image")
+        if crop_points is None:
+            print("Error: Could not process target image for cropping.")
+            exit(1)
+
+        # Crop and pad the reference image to match the dimensions of the cropped target image
+        cropped_target_image = crop_image(target_image, crop_points)
+    
     ## --------------------------------- Registration --------------------------------- ##
 
     initial_params = [0, 1, 1, 0, 0, 1, 1, 0, 0]
@@ -237,6 +418,7 @@ if __name__ == "__main__":
     #plt.tight_layout()
     plt.show()
 
+print("--- %s seconds ---" % (time.time() - start_time))
 
 
 # transformation params = [theta, scale_x, scale_y, skew_x, skew_y, tx, ty]
