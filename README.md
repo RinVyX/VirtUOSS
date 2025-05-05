@@ -21,4 +21,6 @@ using an objective function that try to optimize these transformations:
   <li>Translation (on x and y)</li>
   <li>Skewing (on x and y)</li>
 </ul>
+
+<img url="/inetrpolation.png"></img>
 to minimize the distance between the target points and the reference points.
