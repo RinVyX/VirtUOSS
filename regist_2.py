@@ -261,7 +261,13 @@ def transform_image(image, affine_matrix):
     
     height, width = image.shape[:2]
     
-    transformed_image = cv2.warpAffine(image, affine_matrix, (width - 500, height + 600), flags=cv2.INTER_LINEAR)
+    transformed_image = cv2.warpAffine(image, affine_matrix, (width - 500, height + 600),
+                                       flags=cv2.INTER_LINEAR)
+                                        # Interp[olation] methods 
+                                        # cv2.INTER_CUBIC : Can oversharpen or produce artifacts when upscaling [General-purpose upscaling]
+                                        # cv2.INTER_LANCZOS4 : Highest-quality results, Slowest method [When maximum quality is needed]
+                                        # cv2.INTER_NEAREST : Not suitable for smooth images [speed is critical]
+                                        # cv2.INTER_AREA : Not ideal for upscaling [Preferred for image reduction]
     return transformed_image
 
 
@@ -286,7 +292,7 @@ start_time = time.time()
 if __name__ == "__main__":
     #reference_path = load_image("reference")
     reference_path = "C:\\Users\\P14s\\OneDrive - UQAM\\UQAM\\videos\\Splits\\Haagendaz\\Scratching_video.mp4"
-    # reference_path = "C:\\Users\\P14s\\OneDrive - UQAM\\UQAM\\videos\\Fa2023EnvEnr_EmoANT_IN_21SEP2023_IW2_8554Versace.mp4"
+    #reference_path = "C:\\Users\\P14s\\OneDrive - UQAM\\UQAM\\videos\\Fa2023EnvEnr_EmoANT_IN_21SEP2023_IW2_8554Versace.mp4"
     
     if reference_path:
         #reference_points = process_image(reference_path, "reference")
@@ -339,7 +345,9 @@ if __name__ == "__main__":
 
         # Crop and pad the reference image to match the dimensions of the cropped target image
         cropped_target_image = crop_image(target_image, crop_points)
-    
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        width ,height, _ = cropped_target_image.shape
+
     ## --------------------------------- Registration --------------------------------- ##
 
     initial_params = [0, 1, 1, 0, 0, 1, 1, 0, 0]
@@ -368,7 +376,19 @@ if __name__ == "__main__":
 
     affine_matrix = get_affine_matrix_centered(*best_params, centroid)
 
-    transformed_image = transform_image(target_image, affine_matrix)
+    # Create VideoWriter
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter("./", fourcc, fps, (width, height))
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+        transformed_image = transform_image(target_image, affine_matrix)
+        out.write(transformed_image)
+
+    cap.release()
+    out.release()
 
     print("transformed points :", transformed_points - calculate_centroid(transformed_points))
 
